@@ -1,12 +1,19 @@
-import { Application, Container, TextureStyle } from 'pixi.js';
+import { Application, Container, Graphics, TextureStyle } from 'pixi.js';
 import { Viewport } from 'pixi-viewport';
-import type { HeroSnapshot, PeonSnapshot } from '@agent-citadel/shared';
+import type { HeroSnapshot, MissionSnapshot, PeonSnapshot } from '@agent-citadel/shared';
 import { useWorld } from '../store';
 import { toolToBuilding } from '../theme/mapping';
 import type { BuildingId, ThemeDef } from '../theme/types';
 import { WaypointGraph } from './pathfind';
-import { buildBuilding, drawRoads, drawTerrain } from './placeholders';
+import { buildBuilding, drawRoads, drawTerrain, TEAM_COLORS } from './placeholders';
 import { Unit } from './unit';
+
+interface Particle {
+  g: Graphics;
+  vx: number;
+  vy: number;
+  life: number;
+}
 
 /** Rejestr aktywnego widoku — HUD (minimapa, portrety) sięga przez niego do sceny. */
 let activeView: GameView | undefined;
@@ -30,9 +37,13 @@ export class GameView {
   private app = new Application();
   private viewport!: Viewport;
   private unitLayer = new Container();
+  private fxLayer = new Container();
   private units = new Map<string, Unit>();
+  private retiring = new Map<string, { unit: Unit; deadline: number }>();
   private targets = new Map<string, string>();
   private worldOffset = { x: 0, y: 0 };
+  private particles: Particle[] = [];
+  private missionStatus = new Map<string, string>();
   private graph: WaypointGraph;
   private unsubscribe?: () => void;
 
@@ -112,15 +123,18 @@ export class GameView {
     this.unitLayer.sortableChildren = true;
     for (const def of this.theme.buildings) this.unitLayer.addChild(buildBuilding(def, this.theme, projection));
     worldLayer.addChild(this.unitLayer);
+    worldLayer.addChild(this.fxLayer);
 
     this.app.ticker.add((ticker) => {
       const dt = ticker.deltaMS / 1000;
       for (const unit of this.units.values()) unit.update(dt);
+      this.updateRetiring(dt);
+      this.updateParticles(dt);
     });
 
-    this.unsubscribe = useWorld.subscribe((state) => this.reconcile(state.heroes, state.peons));
-    const { heroes, peons } = useWorld.getState();
-    this.reconcile(heroes, peons);
+    this.unsubscribe = useWorld.subscribe((state) => this.reconcile(state.heroes, state.peons, state.missions));
+    const { heroes, peons, missions } = useWorld.getState();
+    this.reconcile(heroes, peons, missions);
     activeView = this;
   }
 
@@ -172,8 +186,22 @@ export class GameView {
     return this.theme.buildings.find((b) => b.id === id)!;
   }
 
-  private reconcile(heroes: Record<string, HeroSnapshot>, peons: Record<string, PeonSnapshot>): void {
+  private reconcile(
+    heroes: Record<string, HeroSnapshot>,
+    peons: Record<string, PeonSnapshot>,
+    missions: Record<string, MissionSnapshot> = {},
+  ): void {
     const seen = new Set<string>();
+
+    // Fajerwerki przy przejściu misji active -> completed.
+    for (const mission of Object.values(missions)) {
+      const prev = this.missionStatus.get(mission.id);
+      if (mission.status === 'completed' && prev === 'active') {
+        const hero = this.units.get(mission.sessionId);
+        if (hero) this.spawnFireworks(hero.gx, hero.gy, hero.colorIndex);
+      }
+      this.missionStatus.set(mission.id, mission.status);
+    }
 
     for (const hero of Object.values(heroes)) {
       seen.add(hero.sessionId);
@@ -213,10 +241,75 @@ export class GameView {
 
     for (const [id, unit] of this.units) {
       if (!seen.has(id)) {
-        this.unitLayer.removeChild(unit.container);
-        unit.container.destroy({ children: true });
         this.units.delete(id);
         this.targets.delete(id);
+        if (unit.isPeon) {
+          this.retirePeon(unit);
+        } else {
+          this.unitLayer.removeChild(unit.container);
+          unit.container.destroy({ children: true });
+        }
+      }
+    }
+  }
+
+  /** Peon kończy służbę: wraca do rodzica (lub twierdzy) ze skrzynką i znika. */
+  private retirePeon(unit: Unit): void {
+    unit.setCrate(true);
+    unit.setState('returning');
+    const home = [...this.units.values()].find((u) => !u.isPeon && u.colorIndex === unit.colorIndex);
+    const targetPos = home ? { gx: home.gx, gy: home.gy } : this.building('citadel').door;
+    const start = this.graph.nearest(unit.gx, unit.gy);
+    const route = this.graph.route(start.id, this.graph.nearest(targetPos.gx, targetPos.gy).id);
+    route.push({ id: 'home', ...targetPos });
+    unit.setPath(route);
+    this.retiring.set(unit.id, { unit, deadline: performance.now() + 12_000 });
+  }
+
+  private updateRetiring(dt: number): void {
+    for (const [id, entry] of this.retiring) {
+      entry.unit.update(dt);
+      if (!entry.unit.moving || performance.now() > entry.deadline) {
+        this.spawnFireworks(entry.unit.gx, entry.unit.gy, entry.unit.colorIndex, 8);
+        this.unitLayer.removeChild(entry.unit.container);
+        entry.unit.container.destroy({ children: true });
+        this.retiring.delete(id);
+      }
+    }
+  }
+
+  /** Prosty wybuch cząsteczek (ukończona misja / dostarczony łup). */
+  private spawnFireworks(gx: number, gy: number, colorIndex: number, count = 26): void {
+    const { x, y } = this.theme.projection.toScreen(gx, gy);
+    const color = TEAM_COLORS[colorIndex % TEAM_COLORS.length];
+    for (let i = 0; i < count; i++) {
+      const g = new Graphics();
+      g.rect(-2, -2, 4, 4).fill(i % 3 === 0 ? 0xfac775 : color);
+      g.position.set(x, y - 14);
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 60 + Math.random() * 130;
+      this.fxLayer.addChild(g);
+      this.particles.push({
+        g,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 80,
+        life: 0.9 + Math.random() * 0.5,
+      });
+    }
+  }
+
+  private updateParticles(dt: number): void {
+    for (let i = this.particles.length - 1; i >= 0; i--) {
+      const p = this.particles[i];
+      p.life -= dt;
+      p.vy += 220 * dt;
+      p.g.position.x += p.vx * dt;
+      p.g.position.y += p.vy * dt;
+      p.g.alpha = Math.max(0, p.life);
+      if (p.life <= 0) {
+        this.fxLayer.removeChild(p.g);
+        p.g.destroy();
+        this.particles.splice(i, 1);
       }
     }
   }

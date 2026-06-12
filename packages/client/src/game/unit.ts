@@ -18,6 +18,7 @@ export class Unit {
   private path: PathNode[] = [];
   private body: Container;
   private aura = new Graphics();
+  private crate = new Graphics();
   private overlay = new Text({ text: '', style: labelStyle });
   private bubble = new Text({ text: '', style: { ...labelStyle, fontSize: 10 } });
   private nameTag: Text;
@@ -39,6 +40,13 @@ export class Unit {
     this.aura.circle(0, -12, 18).fill({ color: 0x7f77dd, alpha: 0.25 });
     this.aura.visible = false;
 
+    // skrzynka z "łupem" — peon niesie ją wracając do bohatera
+    this.crate.rect(-5, -8, 10, 8).fill(0x8a5a2a);
+    this.crate.rect(-5, -8, 10, 3).fill(0xb07a3a);
+    this.crate.rect(-1.5, -8, 3, 8).fill(0x5a3a1a);
+    this.crate.position.set(isPeon ? 9 : 11, -14);
+    this.crate.visible = false;
+
     this.overlay.anchor.set(0.5, 1);
     this.overlay.position.set(0, -34);
 
@@ -50,8 +58,12 @@ export class Unit {
     this.nameTag.position.set(0, 6);
     this.nameTag.alpha = 0.9;
 
-    this.container.addChild(this.aura, this.body, this.overlay, this.bubble, this.nameTag);
+    this.container.addChild(this.aura, this.body, this.crate, this.overlay, this.bubble, this.nameTag);
     this.syncScreen();
+  }
+
+  setCrate(visible: boolean): void {
+    this.crate.visible = visible;
   }
 
   setName(name: string): void {
