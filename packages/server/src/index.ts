@@ -37,6 +37,11 @@ if (demoMode) {
   const { startDemo } = await import('./demo/scenario.js');
   startDemo(world);
   app.log.info('Tryb demo: generator scenariuszy uruchomiony');
+} else {
+  const { TranscriptWatcher } = await import('./watcher.js');
+  const watcher = new TranscriptWatcher(world);
+  watcher.start();
+  app.log.info('Watcher transkryptów: obserwuję ~/.claude/projects');
 }
 
 app.log.info(`Agent Citadel server: http://127.0.0.1:${SERVER_PORT} (ws: ${WS_PATH})`);
