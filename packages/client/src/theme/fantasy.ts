@@ -9,6 +9,7 @@ import type { ThemeDef } from './types';
 export const FANTASY: ThemeDef = {
   id: 'fantasy',
   name: 'Twierdza (fantasy)',
+  style: 'topdown',
   projection: topdown(48),
   tile: 48,
   grid: { w: 26, h: 17 },

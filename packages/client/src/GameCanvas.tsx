@@ -1,8 +1,10 @@
 import { useEffect, useRef } from 'react';
 import { GameView } from './game/view';
-import { FANTASY } from './theme/fantasy';
+import { getTheme } from './theme';
+import { useSettings } from './settings';
 
 export function GameCanvas() {
+  const themeId = useSettings((s) => s.themeId);
   const hostRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -15,7 +17,7 @@ export function GameCanvas() {
     // szerokości 1 px (np. ukryta karta) psułby dopasowanie kamery.
     const tryInit = () => {
       if (view || host.clientWidth < 50 || host.clientHeight < 50) return;
-      view = new GameView(FANTASY);
+      view = new GameView(getTheme(themeId));
       view.init(host).catch(console.error);
       observer?.disconnect();
     };
@@ -27,7 +29,7 @@ export function GameCanvas() {
       observer?.disconnect();
       view?.destroy();
     };
-  }, []);
+  }, [themeId]);
 
   return <div ref={hostRef} style={{ position: 'absolute', inset: 0 }} />;
 }

@@ -32,6 +32,7 @@ export class GameView {
   private unitLayer = new Container();
   private units = new Map<string, Unit>();
   private targets = new Map<string, string>();
+  private worldOffset = { x: 0, y: 0 };
   private graph: WaypointGraph;
   private unsubscribe?: () => void;
 
@@ -51,8 +52,22 @@ export class GameView {
     });
     host.appendChild(this.app.canvas);
 
-    const worldWidth = this.theme.grid.w * this.theme.tile;
-    const worldHeight = this.theme.grid.h * this.theme.tile;
+    // Granice świata z projekcji (izo ma ujemne X i inną wysokość niż top-down).
+    const projection = this.theme.projection;
+    const corners = [
+      projection.toScreen(0, 0),
+      projection.toScreen(this.theme.grid.w, 0),
+      projection.toScreen(0, this.theme.grid.h),
+      projection.toScreen(this.theme.grid.w, this.theme.grid.h),
+    ];
+    const pad = 60;
+    const minX = Math.min(...corners.map((c) => c.x)) - pad;
+    const maxX = Math.max(...corners.map((c) => c.x)) + pad;
+    const minY = Math.min(...corners.map((c) => c.y)) - pad;
+    const maxY = Math.max(...corners.map((c) => c.y)) + pad;
+    const worldWidth = maxX - minX;
+    const worldHeight = maxY - minY;
+
     this.viewport = new Viewport({
       events: this.app.renderer.events,
       worldWidth,
@@ -83,17 +98,20 @@ export class GameView {
     this.app.renderer.on('resize', refit);
     refit();
 
-    const projection = this.theme.projection;
-    this.viewport.addChild(drawTerrain(this.theme, projection));
-    this.viewport.addChild(drawRoads(this.theme, projection, this.roadSegments()));
+    // Warstwa świata przesunięta tak, by współrzędne ujemne (izo) mieściły się w viewporcie.
+    const worldLayer = new Container();
+    worldLayer.position.set(-minX, -minY);
+    this.worldOffset = { x: -minX, y: -minY };
+    this.viewport.addChild(worldLayer);
 
-    const buildingLayer = new Container();
-    buildingLayer.sortableChildren = true;
-    for (const def of this.theme.buildings) buildingLayer.addChild(buildBuilding(def, this.theme, projection));
-    this.viewport.addChild(buildingLayer);
+    worldLayer.addChild(drawTerrain(this.theme, projection));
+    worldLayer.addChild(drawRoads(this.theme, projection, this.roadSegments()));
 
+    // Budynki i jednostki we wspólnej warstwie sortowanej po głębokości —
+    // w izometrii jednostka może zniknąć ZA budynkiem.
     this.unitLayer.sortableChildren = true;
-    this.viewport.addChild(this.unitLayer);
+    for (const def of this.theme.buildings) this.unitLayer.addChild(buildBuilding(def, this.theme, projection));
+    worldLayer.addChild(this.unitLayer);
 
     this.app.ticker.add((ticker) => {
       const dt = ticker.deltaMS / 1000;
@@ -115,7 +133,11 @@ export class GameView {
   /** Wycentruj kamerę na pozycji siatki (klik w minimapę / portret). */
   centerOn(gx: number, gy: number): void {
     const { x, y } = this.theme.projection.toScreen(gx, gy);
-    this.viewport.animate({ position: { x, y }, time: 350, ease: 'easeInOutSine' });
+    this.viewport.animate({
+      position: { x: x + this.worldOffset.x, y: y + this.worldOffset.y },
+      time: 350,
+      ease: 'easeInOutSine',
+    });
   }
 
   centerOnUnit(id: string): void {

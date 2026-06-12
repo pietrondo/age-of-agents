@@ -35,6 +35,8 @@ export interface WaypointNode {
 export interface ThemeDef {
   id: 'fantasy' | 'scifi';
   name: string;
+  /** Styl rysowania placeholderów: domek top-down vs blok izometryczny. */
+  style: 'topdown' | 'iso';
   projection: Projection;
   /** Rozmiar kafla w px (do terenu i skali jednostek). */
   tile: number;

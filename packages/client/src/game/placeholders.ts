@@ -23,14 +23,19 @@ export const labelStyle = new TextStyle({
 
 export function drawTerrain(theme: ThemeDef, projection: Projection): Graphics {
   const g = new Graphics();
-  const { tile } = theme;
+  // Kafel jako wielokąt z czterech rzutowanych narożników:
+  // top-down daje kwadraty, izometria romby — jeden kod, obie projekcje.
   for (let gy = 0; gy < theme.grid.h; gy++) {
     for (let gx = 0; gx < theme.grid.w; gx++) {
-      const { x, y } = projection.toScreen(gx, gy);
+      const a = projection.toScreen(gx, gy);
+      const b = projection.toScreen(gx + 1, gy);
+      const c = projection.toScreen(gx + 1, gy + 1);
+      const d = projection.toScreen(gx, gy + 1);
       const color = (gx + gy) % 2 === 0 ? theme.terrain.base : theme.terrain.alt;
-      g.rect(x, y, tile, tile).fill(color);
+      g.poly([a.x, a.y, b.x, b.y, c.x, c.y, d.x, d.y]).fill(color);
       if ((gx * 7 + gy * 13) % 11 === 0) {
-        g.rect(x + tile * 0.3, y + tile * 0.4, 3, 3).fill(theme.terrain.alt + 0x0a140a);
+        const mid = projection.toScreen(gx + 0.4, gy + 0.5);
+        g.rect(mid.x, mid.y, 3, 3).fill(theme.terrain.alt + 0x0a140a);
       }
     }
   }
@@ -48,6 +53,12 @@ export function drawRoads(theme: ThemeDef, projection: Projection, segments: [nu
 }
 
 export function buildBuilding(def: BuildingDef, theme: ThemeDef, projection: Projection): Container {
+  return theme.style === 'iso'
+    ? buildIsoBlock(def, theme, projection)
+    : buildTopdownHouse(def, theme, projection);
+}
+
+function buildTopdownHouse(def: BuildingDef, theme: ThemeDef, projection: Projection): Container {
   const container = new Container();
   const { tile } = theme;
   const origin = projection.toScreen(def.gx, def.gy);
@@ -72,6 +83,49 @@ export function buildBuilding(def: BuildingDef, theme: ThemeDef, projection: Pro
   container.position.set(origin.x, origin.y);
   container.zIndex = projection.depth(def.gx + def.w / 2, def.gy + def.h);
   return container;
+}
+
+function buildIsoBlock(def: BuildingDef, theme: ThemeDef, projection: Projection): Container {
+  const container = new Container();
+  const lift = theme.tile * 0.9; // wysokość bryły w px
+
+  const A = projection.toScreen(def.gx, def.gy);
+  const B = projection.toScreen(def.gx + def.w, def.gy);
+  const C = projection.toScreen(def.gx + def.w, def.gy + def.h);
+  const D = projection.toScreen(def.gx, def.gy + def.h);
+  const up = (p: { x: number; y: number }) => ({ x: p.x, y: p.y - lift });
+  const At = up(A);
+  const Bt = up(B);
+  const Ct = up(C);
+  const Dt = up(D);
+
+  const g = new Graphics();
+  // ściana lewa (D-C) i prawa (B-C) — przylegają do dolnego narożnika C
+  g.poly([Dt.x, Dt.y, Ct.x, Ct.y, C.x, C.y, D.x, D.y]).fill(darken(def.placeholderColor, 0.45));
+  g.poly([Bt.x, Bt.y, Ct.x, Ct.y, C.x, C.y, B.x, B.y]).fill(darken(def.placeholderColor, 0.25));
+  // dach
+  g.poly([At.x, At.y, Bt.x, Bt.y, Ct.x, Ct.y, Dt.x, Dt.y]).fill(def.placeholderColor);
+  g.poly([At.x, At.y, Bt.x, Bt.y, Ct.x, Ct.y, Dt.x, Dt.y]).stroke({ color: 0x1a1a17, width: 2 });
+  // świetlik na dachu
+  const roofMid = projection.toScreen(def.gx + def.w / 2, def.gy + def.h / 2);
+  g.circle(roofMid.x, roofMid.y - lift, theme.tile * 0.14).fill(lighten(def.placeholderColor, 0.4));
+  // drzwi przy dolnym narożniku
+  g.rect(C.x - 7, C.y - 20, 14, 20).fill(0x2c2c2a);
+
+  const label = new Text({ text: def.label, style: labelStyle });
+  label.anchor.set(0.5, 0);
+  label.position.set(C.x, C.y + 6);
+
+  container.addChild(g, label);
+  container.zIndex = projection.depth(def.gx + def.w * 0.7, def.gy + def.h * 0.7);
+  return container;
+}
+
+function lighten(color: number, amount: number): number {
+  const r = Math.min(255, Math.floor(((color >> 16) & 0xff) * (1 + amount)));
+  const g = Math.min(255, Math.floor(((color >> 8) & 0xff) * (1 + amount)));
+  const b = Math.min(255, Math.floor((color & 0xff) * (1 + amount)));
+  return (r << 16) | (g << 8) | b;
 }
 
 export function buildUnitBody(color: number, isPeon: boolean): Container {

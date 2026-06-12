@@ -1,26 +1,31 @@
 import { useEffect, useRef } from 'react';
 import { getGameView } from '../game/view';
 import { TEAM_COLORS } from '../game/placeholders';
-import { FANTASY } from '../theme/fantasy';
+import { getTheme } from '../theme';
+import { useSettings } from '../settings';
 
 const W = 180;
 const H = 120;
 
 /** Minimapa: budynki + jednostki, klik przesuwa kamerę. */
 export function Minimap() {
+  const themeId = useSettings((s) => s.themeId);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d')!;
-    const theme = FANTASY;
+    const theme = getTheme(themeId);
     const sx = W / theme.grid.w;
     const sy = H / theme.grid.h;
 
+    const bg = `#${(theme.terrain.base & 0xfefefe).toString(16).padStart(6, '0')}`;
     const timer = setInterval(() => {
-      ctx.fillStyle = '#33402a';
+      ctx.fillStyle = bg;
+      ctx.globalAlpha = 0.55;
       ctx.fillRect(0, 0, W, H);
+      ctx.globalAlpha = 1;
 
       for (const b of theme.buildings) {
         ctx.fillStyle = `#${b.placeholderColor.toString(16).padStart(6, '0')}`;
@@ -43,7 +48,7 @@ export function Minimap() {
       }
     }, 200);
     return () => clearInterval(timer);
-  }, []);
+  }, [themeId]);
 
   return (
     <div className="hud-panel minimap">
@@ -52,9 +57,10 @@ export function Minimap() {
         width={W}
         height={H}
         onClick={(e) => {
+          const grid = getTheme(useSettings.getState().themeId).grid;
           const rect = e.currentTarget.getBoundingClientRect();
-          const gx = ((e.clientX - rect.left) / W) * FANTASY.grid.w;
-          const gy = ((e.clientY - rect.top) / H) * FANTASY.grid.h;
+          const gx = ((e.clientX - rect.left) / W) * grid.w;
+          const gy = ((e.clientY - rect.top) / H) * grid.h;
           getGameView()?.centerOn(gx, gy);
         }}
       />
