@@ -3,18 +3,19 @@ import { Viewport } from 'pixi-viewport';
 import type { HeroSnapshot, MissionSnapshot, PeonSnapshot } from '@agent-citadel/shared';
 import { useWorld } from '../store';
 import { toolToBuilding } from '../theme/mapping';
-import type { BuildingId, ThemeDef } from '../theme/types';
+import type { BuildingDef, BuildingId, ThemeDef } from '../theme/types';
 import { WaypointGraph } from './pathfind';
 import { buildBuilding, drawRoads, drawTerrain, TEAM_COLORS } from './placeholders';
 import { Unit } from './unit';
 import { getHeroSheet, getPeonSheet, loadThemeSprites } from './sprites';
 import { sessionToArchetypeKey } from './archetype';
 import { loadTilemaps, hasTilemaps, buildTilemap } from './tilemap';
-import { loadBuildingSprites } from './building-sprites';
+import { loadBuildingSprites, getBuildingSprite } from './building-sprites';
 import { loadDecorationSprites, getDecorationTexture } from './decoration-sprites';
 import { loadIsoTiles, hasIsoTiles, buildIsoTilemap } from './tilemap-iso';
 import { scatterDecorations, type DecoKind } from './decorations';
 import { buildTerrainMap } from './terrain-map';
+import { BUILDING_FX, collectActiveBuildings, type WorkerSample } from './building-fx';
 
 /** Docelowa szerokość dekoracji w kaflach (do skalowania sprite'a). */
 const DECO_W: Record<DecoKind, number> = { tree: 1.1, rock: 0.8, bush: 0.75, flower: 0.7 };
@@ -24,6 +25,17 @@ interface Particle {
   vx: number;
   vy: number;
   life: number;
+  maxLife: number;
+  gravity: number;
+}
+
+/** Emiter aktywności jednego budynku: poświata + akumulator drobinek. */
+interface FxEmitter {
+  glow: Graphics;
+  intensity: number; // 0..1, łagodne włączanie/wygaszanie
+  accum: number; // ułamek drobinki do wyemitowania
+  x: number;
+  y: number;
 }
 
 /** Rejestr aktywnego widoku — HUD (minimapa, portrety) sięga przez niego do sceny. */
@@ -54,9 +66,13 @@ export class GameView {
   private targets = new Map<string, string>();
   private worldOffset = { x: 0, y: 0 };
   private particles: Particle[] = [];
+  private emitters = new Map<BuildingId, FxEmitter>();
+  private elapsed = 0;
   private missionStatus = new Map<string, string>();
   private graph: WaypointGraph;
   private unsubscribe?: () => void;
+  private ready = false; // app.init() rozwiązane — wolno wołać app.destroy()
+  private destroyed = false; // strażnik wyścigu init()↔destroy() (zmiana motywu w trakcie ładowania)
 
   constructor(private readonly theme: ThemeDef) {
     this.graph = new WaypointGraph(theme);
@@ -72,6 +88,12 @@ export class GameView {
       resolution: window.devicePixelRatio || 1,
       autoDensity: true,
     });
+    // Widok mógł zostać zniszczony (zmiana motywu) w trakcie await app.init().
+    this.ready = true;
+    if (this.destroyed) {
+      this.app.destroy(true, { children: true });
+      return;
+    }
     host.appendChild(this.app.canvas);
 
     // Granice świata z projekcji (izo ma ujemne X i inną wysokość niż top-down).
@@ -135,6 +157,7 @@ export class GameView {
       loadDecorationSprites(this.theme.id),
       this.theme.style === 'topdown' ? loadTilemaps(this.theme.id) : loadIsoTiles(this.theme.id),
     ]);
+    if (this.destroyed) return; // zniszczony w trakcie ładowania assetów — nie buduj sceny
 
     if (this.theme.style === 'topdown' && hasTilemaps()) {
       worldLayer.addChild(buildTilemap(this.theme)); // niesortowana warstwa tła pod unitLayer
@@ -143,7 +166,7 @@ export class GameView {
     } else {
       worldLayer.addChild(drawTerrain(this.theme, projection));
     }
-    worldLayer.addChild(drawRoads(this.theme, projection, this.roadSegments()));
+    worldLayer.addChild(drawRoads(this.theme, projection));
 
     // Budynki i jednostki we wspólnej warstwie sortowanej po głębokości —
     // w izometrii jednostka może zniknąć ZA budynkiem.
@@ -176,8 +199,10 @@ export class GameView {
 
     this.app.ticker.add((ticker) => {
       const dt = ticker.deltaMS / 1000;
+      this.elapsed += dt;
       for (const unit of this.units.values()) unit.update(dt);
       this.updateRetiring(dt);
+      this.updateBuildingFx(dt);
       this.updateParticles(dt);
     });
 
@@ -188,9 +213,11 @@ export class GameView {
   }
 
   destroy(): void {
+    if (this.destroyed) return; // idempotentne
+    this.destroyed = true;
     if (activeView === this) activeView = undefined;
     this.unsubscribe?.();
-    this.app.destroy(true, { children: true });
+    if (this.ready) this.app.destroy(true, { children: true }); // app.init() musiało się rozwiązać
   }
 
   /** Wycentruj kamerę na pozycji siatki (klik w minimapę / portret). */
@@ -221,14 +248,6 @@ export class GameView {
 
   worldGrid(): { w: number; h: number } {
     return this.theme.grid;
-  }
-
-  private roadSegments(): [number, number, number, number][] {
-    return this.theme.edges.map(([a, b]) => {
-      const na = this.graph.node(a)!;
-      const nb = this.graph.node(b)!;
-      return [na.gx, na.gy, nb.gx, nb.gy];
-    });
   }
 
   private building(id: BuildingId) {
@@ -338,24 +357,113 @@ export class GameView {
       g.position.set(x, y - 14);
       const angle = Math.random() * Math.PI * 2;
       const speed = 60 + Math.random() * 130;
+      const life = 0.9 + Math.random() * 0.5;
       this.fxLayer.addChild(g);
       this.particles.push({
         g,
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed - 80,
-        life: 0.9 + Math.random() * 0.5,
+        life,
+        maxLife: life,
+        gravity: 220,
       });
     }
+  }
+
+  /**
+   * FX aktywności budynków: dla każdego budynku z pracującą jednostką w pobliżu
+   * utrzymuje poświatę (łagodnie włączaną/wygaszaną) i sączy drobinki w stylu
+   * z BUILDING_FX. Próg/wygląd → building-fx.ts (punkt strojenia usera).
+   */
+  private updateBuildingFx(dt: number): void {
+    const active = this.collectActiveBuildings();
+    for (const b of this.theme.buildings) {
+      const style = BUILDING_FX[b.id];
+      const on = active.has(b.id);
+      let em = this.emitters.get(b.id);
+
+      if (on && !em) {
+        const anchor = this.fxAnchor(b);
+        const glow = new Graphics();
+        const r = this.theme.tile * 0.55;
+        for (const k of [1, 0.65, 0.35]) glow.circle(0, 0, r * k).fill({ color: style.color, alpha: 0.5 });
+        glow.blendMode = 'add';
+        glow.position.set(anchor.x, anchor.y);
+        this.fxLayer.addChild(glow);
+        em = { glow, intensity: 0, accum: 0, x: anchor.x, y: anchor.y };
+        this.emitters.set(b.id, em);
+      }
+      if (!em) continue;
+
+      em.intensity += ((on ? 1 : 0) - em.intensity) * Math.min(1, dt * 4);
+      const pulse = 0.78 + 0.22 * Math.sin(this.elapsed * 3 + b.gx + b.gy);
+      em.glow.alpha = em.intensity * style.glow * pulse;
+
+      if (on) {
+        em.accum += dt * style.rate * em.intensity;
+        while (em.accum >= 1) {
+          em.accum -= 1;
+          this.spawnBuildingMote(em, style);
+        }
+      } else if (em.intensity < 0.02) {
+        this.fxLayer.removeChild(em.glow);
+        em.glow.destroy();
+        this.emitters.delete(b.id);
+      }
+    }
+  }
+
+  /** Pojedyncza unosząca się drobinka aktywności (dym/iskra/poświata). */
+  private spawnBuildingMote(em: FxEmitter, style: (typeof BUILDING_FX)[BuildingId]): void {
+    const g = new Graphics();
+    g.rect(-1.5, -1.5, 3, 3).fill(Math.random() < 0.3 ? style.spark : style.color);
+    g.position.set(em.x + (Math.random() - 0.5) * style.spread, em.y);
+    g.blendMode = 'add';
+    const life = 1.0 + Math.random() * 0.8;
+    this.fxLayer.addChild(g);
+    this.particles.push({
+      g,
+      vx: (Math.random() - 0.5) * 12,
+      vy: -style.rise * (0.6 + Math.random() * 0.6),
+      life,
+      maxLife: life,
+      gravity: 36, // lekka grawitacja — drobinka wznosi się i zwalnia
+    });
+  }
+
+  /** Punkt zaczepienia FX przy wierzchołku sprite'a budynku (z wymiarów tekstury). */
+  private fxAnchor(b: BuildingDef): { x: number; y: number } {
+    const foot = this.theme.projection.toScreen(b.gx + b.w / 2, b.gy + b.h); // kotwica sprite'a (0.5,1)
+    const tex = getBuildingSprite(b.id);
+    const hgt = tex ? tex.height * ((b.w * this.theme.tile) / tex.width) : this.theme.tile * (b.h + 1);
+    return { x: foot.x, y: foot.y - hgt * 0.78 }; // ~górne 22% bryły
+  }
+
+  /** Budynki z pracującą jednostką dostatecznie blisko drzwi (czysta reguła w building-fx.ts). */
+  private collectActiveBuildings(): Set<BuildingId> {
+    const samples: WorkerSample[] = [];
+    for (const [id, unit] of this.units) {
+      const target = this.targets.get(id);
+      if (!target || !target.startsWith('w:')) continue;
+      const buildingId = target.slice(2) as BuildingId;
+      const door = this.building(buildingId).door;
+      samples.push({
+        buildingId,
+        distToDoor: Math.hypot(unit.gx - door.gx, unit.gy - door.gy),
+        working: true,
+      });
+    }
+    return collectActiveBuildings(samples);
   }
 
   private updateParticles(dt: number): void {
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles[i];
       p.life -= dt;
-      p.vy += 220 * dt;
+      p.vy += p.gravity * dt;
       p.g.position.x += p.vx * dt;
       p.g.position.y += p.vy * dt;
-      p.g.alpha = Math.max(0, p.life);
+      p.g.alpha = Math.max(0, p.life / p.maxLife);
       if (p.life <= 0) {
         this.fxLayer.removeChild(p.g);
         p.g.destroy();

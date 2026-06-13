@@ -1,4 +1,5 @@
 import type { ThemeDef } from '../theme/types';
+import { themeRoadCurves, pointOnRoad } from './roads';
 
 export type TerrainId = 'grass' | 'dirt' | 'water' | 'rock';
 export const TERRAINS: readonly TerrainId[] = ['grass', 'dirt', 'water', 'rock'];
@@ -31,19 +32,8 @@ function fbm(x: number, y: number, seed: number): number {
   return valueNoise(x, y, 0.16, seed) * 0.65 + valueNoise(x, y, 0.34, seed + 9973) * 0.35;
 }
 
-/** Dystans punktu (px,py) do odcinka (a–b) w przestrzeni siatki. */
-function distToSeg(px: number, py: number, ax: number, ay: number, bx: number, by: number): number {
-  const dx = bx - ax;
-  const dy = by - ay;
-  const len2 = dx * dx + dy * dy || 1;
-  let t = ((px - ax) * dx + (py - ay) * dy) / len2;
-  t = Math.max(0, Math.min(1, t));
-  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
-}
-
 const WATER_BELOW = 0.25; // niskie zagłębienia szumu → stawy
 const ROCK_ABOVE = 0.78; // wysokie grzbiety → połacie skał
-const ROAD_WIDTH = 0.65; // pół-szerokość pasa ziemi wokół dróg
 
 /**
  * Proceduralna, estetyczna mapa biomów (deterministyczna).
@@ -69,26 +59,49 @@ export function buildTerrainMap(theme: ThemeDef): TerrainId[][] {
     }
   }
 
-  // 2. ścieżki ziemne wzdłuż dróg — tylko na trawie (nie zatapiają wody/skał)
-  const nodeAt = (id: string): { gx: number; gy: number } | undefined =>
-    id.startsWith('door:')
-      ? theme.buildings.find((b) => `door:${b.id}` === id)?.door
-      : theme.crossroads.find((c) => c.id === id);
-  const segs = theme.edges
-    .map(([a, b]) => [nodeAt(a), nodeAt(b)] as const)
-    .filter((s): s is [{ gx: number; gy: number }, { gx: number; gy: number }] => !!s[0] && !!s[1]);
-
+  // 2. ścieżki ziemne wzdłuż dróg — tylko na trawie (nie zatapiają wody/skał).
+  // Te same krzywe (roads.ts) co render w drawRoads → pas ziemi pokrywa się z drogą.
+  const curves = themeRoadCurves(theme);
   for (let gy = 0; gy < h; gy++) {
     for (let gx = 0; gx < w; gx++) {
       if (map[gy][gx] !== 'grass') continue;
-      for (const [a, b] of segs) {
-        if (distToSeg(gx + 0.5, gy + 0.5, a.gx, a.gy, b.gx, b.gy) < ROAD_WIDTH) {
-          map[gy][gx] = 'dirt';
-          break;
-        }
-      }
+      if (pointOnRoad(curves, gx + 0.5, gy + 0.5)) map[gy][gx] = 'dirt';
     }
   }
 
   return map;
+}
+
+/** Iso-sąsiad o innym biomie (jedna z 4 krawędzi diamentu) — do feather/AO w izo-terenie. */
+export interface BiomeEdge {
+  dgx: number;
+  dgy: number;
+  biome: TerrainId;
+}
+
+const ISO_NEIGHBORS: readonly [number, number][] = [
+  [1, 0],
+  [-1, 0],
+  [0, 1],
+  [0, -1],
+];
+
+/**
+ * Krawędzie komórki (gx,gy) stykające się z INNYM biomem. W izometrii 4 boki
+ * diamentu odpowiadają kardynalnym sąsiadom siatki. Używane do zmiękczania
+ * styków biomów (nakładka tekstury sąsiada + przyciemnienie konturu).
+ */
+export function biomeEdges(map: TerrainId[][], gx: number, gy: number): BiomeEdge[] {
+  const h = map.length;
+  const w = map[0].length;
+  const self = map[gy][gx];
+  const out: BiomeEdge[] = [];
+  for (const [dgx, dgy] of ISO_NEIGHBORS) {
+    const nx = gx + dgx;
+    const ny = gy + dgy;
+    if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+    const nb = map[ny][nx];
+    if (nb !== self) out.push({ dgx, dgy, biome: nb });
+  }
+  return out;
 }

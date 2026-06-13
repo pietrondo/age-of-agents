@@ -2,6 +2,7 @@ import { Container, Graphics, Sprite, Text, TextStyle, type Texture } from 'pixi
 import type { BuildingDef, ThemeDef } from '../theme/types';
 import type { Projection } from './projection';
 import { getBuildingSprite } from './building-sprites';
+import { themeRoadCurves, type RoadPoint } from './roads';
 
 /**
  * Programowe placeholdery w duchu pixel-art — gra działa i wygląda
@@ -43,14 +44,56 @@ export function drawTerrain(theme: ThemeDef, projection: Projection): Graphics {
   return g;
 }
 
-export function drawRoads(theme: ThemeDef, projection: Projection, segments: [number, number, number, number][]): Graphics {
+/**
+ * Drogi jako organiczne wstęgi o zmiennej szerokości wzdłuż krzywych z roads.ts
+ * (te same krzywe sterują pasem 'dirt' w terenie). Offset liczony w przestrzeni
+ * SIATKI, a dopiero potem rzutowany — poprawnie oddaje anizotropię izometrii.
+ */
+export function drawRoads(theme: ThemeDef, projection: Projection): Graphics {
   const g = new Graphics();
-  for (const [ax, ay, bx, by] of segments) {
-    const a = projection.toScreen(ax, ay);
-    const b = projection.toScreen(bx, by);
-    g.moveTo(a.x, a.y).lineTo(b.x, b.y).stroke({ color: theme.terrain.path, width: theme.tile * 0.35, cap: 'round' });
+  const edge = darken(theme.terrain.path, 0.3);
+  for (const curve of themeRoadCurves(theme)) {
+    if (curve.length < 2) continue;
+    const left: { x: number; y: number }[] = [];
+    const right: { x: number; y: number }[] = [];
+    for (let i = 0; i < curve.length; i++) {
+      const p = curve[i];
+      const { nx, ny } = gridNormal(curve, i);
+      left.push(projection.toScreen(p.gx + nx * p.hw, p.gy + ny * p.hw));
+      right.push(projection.toScreen(p.gx - nx * p.hw, p.gy - ny * p.hw));
+    }
+    const poly: number[] = [];
+    for (const pt of left) poly.push(pt.x, pt.y);
+    for (let i = right.length - 1; i >= 0; i--) poly.push(right[i].x, right[i].y);
+    g.poly(poly).fill(theme.terrain.path);
+    g.poly(poly).stroke({ color: edge, width: 1.5, alpha: 0.5 });
+    // zaokrąglone końce, by droga nie urywała się ostrym ścięciem
+    drawCap(g, left[0], right[0], theme.terrain.path);
+    drawCap(g, left[curve.length - 1], right[curve.length - 1], theme.terrain.path);
   }
   return g;
+}
+
+/** Jednostkowa normalna do osi drogi w punkcie i (różnica do sąsiadów). */
+function gridNormal(curve: RoadPoint[], i: number): { nx: number; ny: number } {
+  const a = curve[Math.max(0, i - 1)];
+  const b = curve[Math.min(curve.length - 1, i + 1)];
+  const tx = b.gx - a.gx;
+  const ty = b.gy - a.gy;
+  const len = Math.hypot(tx, ty) || 1;
+  return { nx: -ty / len, ny: tx / len };
+}
+
+/**
+ * Zaokrąglony koniec drogi. Promień = połowa szerokości wstęgi W TYM punkcie
+ * (z rzutowanych szyn l/r), więc czapka pasuje do wstęgi dla DOWOLNEJ orientacji
+ * drogi — w izometrii szerokość ekranowa zależy od kierunku (anizotropia).
+ */
+function drawCap(g: Graphics, l: { x: number; y: number }, r: { x: number; y: number }, color: number): void {
+  const cx = (l.x + r.x) / 2;
+  const cy = (l.y + r.y) / 2;
+  const rad = Math.hypot(l.x - r.x, l.y - r.y) / 2 || 4;
+  g.circle(cx, cy, rad).fill(color);
 }
 
 export function buildBuilding(def: BuildingDef, theme: ThemeDef, projection: Projection): Container {
