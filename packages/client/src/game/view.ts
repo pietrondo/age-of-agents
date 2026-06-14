@@ -23,8 +23,13 @@ import type { Lang } from '../settings';
 /** Docelowa szerokość dekoracji w kaflach (do skalowania sprite'a). */
 const DECO_W: Record<DecoKind, number> = { tree: 1.1, rock: 0.8, bush: 0.75, flower: 0.7 };
 
-/** Margines „dzikiej ziemi" (kafle poza siatką rozgrywki) wypełniający rogi ekranu. */
-const WORLD_MARGIN_TILES = 4;
+/**
+ * Margines „dzikiej ziemi" (kafle poza siatką rozgrywki) dookoła planszy. Większy
+ * margines przy „cover" kurczy treść ku środkowi, więc skrajne budynki (np. Kuźnia
+ * w prawym-górnym rogu) wychodzą spod nachodzących paneli HUD — całą planszę widać
+ * mimo otwartych paneli, dalej bez czarnych ramek (teren wypełnia rogi).
+ */
+const WORLD_MARGIN_TILES = 12;
 /**
  * Dodatkowy zapas nad terenem (w kaflach) na wysokie bryły. Sprite budynku jest
  * kotwiczony u stopy (0.5, 1) i rośnie w GÓRĘ, więc szczyt np. wieży maga sięga
