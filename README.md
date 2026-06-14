@@ -9,7 +9,7 @@ The tool it runs decides which workshop it visits, subagents become workers,
 and tokens fill the storehouse — a calm, Age-of-Empires-style kingdom of your work.
 No combat, just a quiet realm you can watch at a glance.
 
-[![npm](https://img.shields.io/badge/npx-age--of--agents-6e9b46.svg)](https://www.npmjs.com/package/age-of-agents)
+[![npm version](https://img.shields.io/npm/v/age-of-agents?color=6e9b46&label=npm&logo=npm)](https://www.npmjs.com/package/age-of-agents)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e0b64a.svg)](LICENSE)
 ![Node](https://img.shields.io/badge/node-%E2%89%A522-339933?logo=node.js&logoColor=white)
 ![PixiJS](https://img.shields.io/badge/PixiJS-v8-e91e63)

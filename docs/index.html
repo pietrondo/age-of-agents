@@ -81,6 +81,11 @@
   .npx{display:inline-flex; align-items:center; gap:12px; margin-top:26px; padding:12px 18px; border-radius:6px;
     background:#0a0f0b; border:1px solid var(--line-grass); font-size:15px; color:var(--cream)}
   .npx .pr{color:var(--grass-bright)} .npx .cmd{color:var(--cream)} .npx .hint{color:var(--cream-faint); font-size:12px}
+  .npx .copy{margin-left:4px; font-family:var(--mono); font-size:12px; padding:5px 11px; border-radius:4px; border:1px solid var(--line-grass); background:transparent; color:var(--cream-dim); cursor:pointer; transition:.15s}
+  .npx .copy:hover{border-color:var(--grass-bright); color:var(--grass-bright)}
+  .npx .copy.copied{color:var(--grass-bright); border-color:var(--grass-bright)}
+  .ver{display:flex; align-items:center; gap:12px; margin-top:14px; font-size:12px; color:var(--cream-faint); flex-wrap:wrap}
+  .ver img{display:block; height:20px}
 
   .frame{position:relative; margin:42px auto 0; max-width:980px; padding:12px;
     background:linear-gradient(180deg,var(--panel2),var(--panel)); border:1px solid var(--line-strong);
@@ -173,7 +178,8 @@
       <div class="ornament rv"><span class="rule"></span><span class="eyebrow">A peaceful RTS for Claude Code &amp; Codex</span><span class="rule r"></span></div>
       <h1 class="rv" data-d="1">Age of<span class="em">Agents</span></h1>
       <p class="lede rv" data-d="2">Watch your AI coding sessions grow a calm, living pixel realm. Every session is a settler that walks out of the keep, gathers and builds; the tool it runs decides which workshop it visits, subagents become workers, and tokens fill the storehouse. No combat — just a quiet kingdom of work, at a glance.</p>
-      <div class="npx rv" data-d="3"><span class="pr">❯</span><span class="cmd">npx age-of-agents</span><span class="hint">— one command, no install</span></div>
+      <div class="npx rv" data-d="3"><span class="pr">❯</span><code class="cmd" id="npxCmd">npx age-of-agents</code><button class="copy" id="copyBtn" type="button" aria-label="Copy command">copy</button></div>
+      <div class="ver rv" data-d="3"><a href="https://www.npmjs.com/package/age-of-agents" target="_blank" rel="noopener"><img alt="age-of-agents on npm" src="https://img.shields.io/npm/v/age-of-agents?color=6e9b46&amp;label=npm&amp;logo=npm&amp;logoColor=white"></a><span>one command, no install · needs Node 22+</span></div>
       <div class="cta rv" data-d="3">
         <a class="btn gold" href="https://github.com/agentsmill/age-of-agents" target="_blank" rel="noopener">⬇ Get it on GitHub</a>
         <a class="btn" href="#worlds">Tour the realm</a>
@@ -307,6 +313,17 @@
     bFan.classList.toggle('active', fan); bSci.classList.toggle('active', !fan);
   }
   bFan.onclick=()=>set('fantasy'); bSci.onclick=()=>set('scifi');
+
+  // Kopiowanie komendy instalacji do schowka (kopiuje dokładnie to, co pokazane).
+  const copyBtn=document.getElementById('copyBtn'), npxCmd=document.getElementById('npxCmd');
+  copyBtn?.addEventListener('click', async ()=>{
+    try{
+      await navigator.clipboard.writeText(npxCmd.textContent.trim());
+      copyBtn.textContent='✓ copied';
+      copyBtn.classList.add('copied');
+      setTimeout(()=>{ copyBtn.textContent='copy'; copyBtn.classList.remove('copied'); }, 1600);
+    }catch(_){ /* schowek niedostępny (np. nie-https) — pomiń */ }
+  });
 </script>
 </body>
 </html>
