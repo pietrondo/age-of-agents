@@ -1,5 +1,5 @@
 import { basename } from 'node:path';
-import type { ActionEntry, HeroSnapshot, HeroStateKind } from '@agent-citadel/shared';
+import type { ActionEntry, AgentKind, HeroSnapshot, HeroStateKind } from '@agent-citadel/shared';
 import type { Fact } from './transcript/facts.js';
 import { cleanTitle, isSubstantialPrompt } from './transcript/title.js';
 import type { World } from './world.js';
@@ -55,6 +55,7 @@ export class SessionTracker {
     private readonly sessionId: string,
     private readonly projectDir: string,
     private readonly thresholds: StateThresholds = DEFAULT_THRESHOLDS,
+    private readonly agent: AgentKind = 'claude',
   ) {}
 
   private hero(): HeroSnapshot {
@@ -63,6 +64,7 @@ export class SessionTracker {
     const now = new Date().toISOString();
     return {
       sessionId: this.sessionId,
+      agent: this.agent,
       title: this.displayTitle(),
       projectDir: this.projectDir,
       projectName: this.projectName,
@@ -167,6 +169,12 @@ export class SessionTracker {
           };
           this.patch({ tokens: this.tokens });
         }
+        break;
+
+      case 'usage-total':
+        // Codex: token_count jest kumulatywny → USTAW, nie dodawaj.
+        this.tokens = { input: fact.input, output: fact.output };
+        this.patch({ tokens: this.tokens });
         break;
 
       case 'tool-result':

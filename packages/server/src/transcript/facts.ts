@@ -11,6 +11,7 @@ export type Fact =
   | { kind: 'assistant-text'; text: string; ts: string }
   | { kind: 'tool-start'; tool: string; detail?: string; messageId: string; ts: string }
   | { kind: 'usage'; messageId: string; input: number; output: number }
+  | { kind: 'usage-total'; input: number; output: number }
   | { kind: 'turn-end'; ts: string }
   | { kind: 'tool-result'; isError: boolean; ts: string }
   | { kind: 'awaiting'; ts: string };

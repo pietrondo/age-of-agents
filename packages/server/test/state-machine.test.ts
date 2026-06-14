@@ -48,6 +48,20 @@ describe('SessionTracker', () => {
     expect(world.getHero('sesja-1')?.tokens).toEqual({ input: 110, output: 55 });
   });
 
+  it('usage-total USTAWIA tokeny (kumulatywne, nie sumuje)', () => {
+    const { world, tracker } = setup();
+    tracker.apply({ kind: 'usage-total', input: 100, output: 40 });
+    tracker.apply({ kind: 'usage-total', input: 250, output: 90 });
+    expect(world.getHero('sesja-1')?.tokens).toEqual({ input: 250, output: 90 });
+  });
+
+  it('agent z konstruktora ląduje w HeroSnapshot', () => {
+    const world = new World();
+    const tracker = new SessionTracker(world, 'sesja-cx', 'projekt-x', DEFAULT_THRESHOLDS, 'codex');
+    tracker.apply({ kind: 'prompt', text: 'Zrób coś', ts: '2026-06-14T10:00:00.000Z' });
+    expect(world.getHero('sesja-cx')?.agent).toBe('codex');
+  });
+
   it('błąd narzędzia pokazuje stan error, tick po czasie wraca do idle', () => {
     const { world, tracker } = setup();
     tracker.apply({ kind: 'tool-result', isError: true, ts: new Date().toISOString() });
