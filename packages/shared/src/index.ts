@@ -1,5 +1,8 @@
 /** Protokół WebSocket Agent Citadel — wspólne typy serwera i klienta. */
 
+/** Który CLI wygenerował sesję — steruje odznaką bohatera i mapowaniem narzędzi. */
+export type AgentKind = 'claude' | 'codex'; // | 'opencode' (Faza 2)
+
 export type HeroStateKind =
   | 'thinking'
   | 'working'
@@ -20,6 +23,8 @@ export interface ActionEntry {
 
 export interface HeroSnapshot {
   sessionId: string;
+  /** Pochodzenie sesji (Claude/Codex). Brak → traktuj jak 'claude' (zgodność wsteczna). */
+  agent?: AgentKind;
   title: string;
   projectDir: string;
   /** Czytelna nazwa projektu (basename cwd, np. "RTS agents") — do HUD. */
