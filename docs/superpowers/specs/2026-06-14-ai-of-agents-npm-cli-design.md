@@ -72,8 +72,9 @@ Nowy `build` produkuje katalog `dist/`:
 
 ### 3. Runtime / komenda
 
-- `package.json`: `"bin": { "ai-of-agents": "dist/cli.js" }` (z shebangiem
-  `#!/usr/bin/env node`, plik wykonywalny).
+- `package.json`: `"bin": { "ai-of-agents": "dist/cli.js", "aioa": "dist/cli.js" }`
+  (z shebangiem `#!/usr/bin/env node`, plik wykonywalny). Dwie komendy wskazują na
+  ten sam plik — `aioa` to krótszy alias (`npx aioa`).
 - `cli.js` parsuje flagi i startuje serwer:
   - domyślnie **realny tryb** (watcher `~/.claude/projects`);
   - `--demo` — tryb demo (sztuczne dane), istnieje już w `index.ts` jako `--demo`;
