@@ -39,6 +39,8 @@ const WORLD_MARGIN_TILES = 12;
 const TOP_SPRITE_HEADROOM_TILES = 2;
 /** Górny limit przybliżenia (kontrolki/kółko). Dolny = „cover" liczony dynamicznie. */
 const MAX_ZOOM = 5;
+/** Krotność skali „cover" przy focusie na jednostce (podwójny klik / autofollow). */
+const FOCUS_ZOOM_FACTOR = 2.5;
 
 interface Particle {
   g: Graphics;
@@ -161,6 +163,8 @@ export class GameView {
 
     this.viewport.on('wheel-scroll', () => (this.userZoomed = true));
     this.viewport.on('pinch-start', () => (this.userZoomed = true));
+    // Ręczne przeciągnięcie mapy przejmuje sterowanie → zrywa autofollow.
+    this.viewport.on('drag-start', () => useWorld.getState().setAutofollow(false));
 
     const refit = () => {
       const screenW = this.app.screen.width;
@@ -250,6 +254,7 @@ export class GameView {
         unit.setSelected(id === selected);
         unit.update(dt);
       }
+      if (selected && useWorld.getState().autofollow) this.followSelected(selected);
       this.wanderIdle();
       this.updateRetiring(dt);
       this.updateBuildingFx(dt);
@@ -283,6 +288,31 @@ export class GameView {
   centerOnUnit(id: string): void {
     const unit = this.units.get(id);
     if (unit) this.centerOn(unit.gx, unit.gy);
+  }
+
+  /** Wycentruj i przybliż kamerę na jednostce (podwójny klik portretu / włączenie autofollow). */
+  focusOnUnit(id: string): void {
+    const unit = this.units.get(id);
+    if (!unit) return;
+    const cover = this.coverScale();
+    const max = Math.max(MAX_ZOOM, cover * 1.2);
+    const target = Math.min(max, Math.max(cover, cover * FOCUS_ZOOM_FACTOR));
+    const { x, y } = this.theme.projection.toScreen(unit.gx, unit.gy);
+    this.userZoomed = true; // jak zoomBy — refit() przy resize nie cofnie zoomu focusa
+    this.viewport.animate({
+      position: { x: x + this.worldOffset.x, y: y + this.worldOffset.y },
+      scale: target,
+      time: 350,
+      ease: 'easeInOutSine',
+    });
+  }
+
+  /** Gdy autofollow włączony: trzymaj kamerę na wybranej jednostce (zoom bez zmian). */
+  private followSelected(id: string): void {
+    const unit = this.units.get(id);
+    if (!unit) return;
+    const { x, y } = this.theme.projection.toScreen(unit.gx, unit.gy);
+    this.viewport.moveCenter(x + this.worldOffset.x, y + this.worldOffset.y);
   }
 
   /** Mnożnik zoomu (kontrolki HUD +/−). Trzymany w granicach clampZoom (cover … MAX_ZOOM). */
