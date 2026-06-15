@@ -50,6 +50,7 @@ export interface UiStrings {
   notifClose: string;
   notifJump: string;
   autofollow: string;
+  autofollowHint: string;
 }
 
 const EN: UiStrings = {
@@ -105,6 +106,7 @@ const EN: UiStrings = {
   notifClose: 'Close',
   notifJump: 'click to jump',
   autofollow: 'Follow',
+  autofollowHint: 'Camera follows this hero',
 };
 
 const PL: UiStrings = {
@@ -160,6 +162,7 @@ const PL: UiStrings = {
   notifClose: 'Zamknij',
   notifJump: 'kliknij, by skoczyć',
   autofollow: 'Podążaj',
+  autofollowHint: 'Kamera podąża za bohaterem',
 };
 
 const UI: Record<Lang, UiStrings> = { en: EN, pl: PL };

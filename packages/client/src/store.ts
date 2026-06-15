@@ -51,8 +51,14 @@ export const useWorld = create<WorldStore>((set) => ({
   autofollow: false,
   setConnected: (connected) => set({ connected }),
   // Wybór jednostki i budynku wzajemnie się wykluczają (jeden panel po prawej).
-  // Zmiana zaznaczenia zeruje autofollow — to opt-in per agent, nie globalny tryb.
-  select: (selectedSessionId) => set({ selectedSessionId, selectedBuildingId: undefined, autofollow: false }),
+  // Reset autofollow tylko przy ZMIANIE celu (opt-in per agent): ponowny klik w już
+  // śledzoną jednostkę nie zrywa follow, a przełączenie na inną — owszem.
+  select: (sessionId) =>
+    set((s) => ({
+      selectedSessionId: sessionId,
+      selectedBuildingId: undefined,
+      autofollow: sessionId === s.selectedSessionId ? s.autofollow : false,
+    })),
   selectBuilding: (selectedBuildingId) => set({ selectedBuildingId, selectedSessionId: undefined, autofollow: false }),
   setAutofollow: (autofollow) => set({ autofollow }),
   dismissNotification: (id) =>
@@ -78,6 +84,10 @@ export const useWorld = create<WorldStore>((set) => ({
         case 'hero-removed': {
           const heroes = { ...state.heroes };
           delete heroes[event.sessionId];
+          // Usunięto śledzonego bohatera → wygaś selekcję i autofollow (brak martwego celu).
+          if (state.selectedSessionId === event.sessionId) {
+            return { heroes, selectedSessionId: undefined, autofollow: false };
+          }
           return { heroes };
         }
         case 'peon-spawned':

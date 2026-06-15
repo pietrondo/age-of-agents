@@ -161,9 +161,17 @@ export class GameView {
     this.viewport.clamp({ direction: 'all', underflow: 'center' });
     this.app.stage.addChild(this.viewport);
 
-    this.viewport.on('wheel-scroll', () => (this.userZoomed = true));
-    this.viewport.on('pinch-start', () => (this.userZoomed = true));
-    // Ręczne przeciągnięcie mapy przejmuje sterowanie → zrywa autofollow.
+    // Ręczne sterowanie kamerą (zoom kółkiem, pinch, przeciągnięcie) przejmuje
+    // kontrolę → zrywa autofollow. Inaczej followSelected co klatkę cofałby
+    // pan-do-kursora przy zoomie i kleił mapę przy dragu.
+    this.viewport.on('wheel-scroll', () => {
+      this.userZoomed = true;
+      useWorld.getState().setAutofollow(false);
+    });
+    this.viewport.on('pinch-start', () => {
+      this.userZoomed = true;
+      useWorld.getState().setAutofollow(false);
+    });
     this.viewport.on('drag-start', () => useWorld.getState().setAutofollow(false));
 
     const refit = () => {
@@ -297,8 +305,15 @@ export class GameView {
     const cover = this.coverScale();
     const max = Math.max(MAX_ZOOM, cover * 1.2);
     const target = Math.min(max, Math.max(cover, cover * FOCUS_ZOOM_FACTOR));
-    const { x, y } = this.theme.projection.toScreen(unit.gx, unit.gy);
     this.userZoomed = true; // jak zoomBy — refit() przy resize nie cofnie zoomu focusa
+    // Gdy autofollow trzyma TĘ jednostkę, followSelected co klatkę owns pozycję —
+    // animujemy więc tylko skalę, by nie rywalizować o pozycję (dwa tickery → jitter).
+    const st = useWorld.getState();
+    if (st.autofollow && st.selectedSessionId === id) {
+      this.viewport.animate({ scale: target, time: 350, ease: 'easeInOutSine' });
+      return;
+    }
+    const { x, y } = this.theme.projection.toScreen(unit.gx, unit.gy);
     this.viewport.animate({
       position: { x: x + this.worldOffset.x, y: y + this.worldOffset.y },
       scale: target,

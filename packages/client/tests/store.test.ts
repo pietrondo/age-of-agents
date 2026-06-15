@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { useWorld } from '../src/store';
 
 beforeEach(() => {
-  useWorld.setState({ autofollow: false, selectedSessionId: undefined, selectedBuildingId: undefined });
+  useWorld.setState({ autofollow: false, selectedSessionId: undefined, selectedBuildingId: undefined, heroes: {} });
 });
 
 describe('autofollow w store', () => {
@@ -15,22 +15,48 @@ describe('autofollow w store', () => {
     expect(useWorld.getState().autofollow).toBe(true);
   });
 
-  it('select(id) resetuje autofollow do false i ustawia zaznaczenie', () => {
-    useWorld.getState().setAutofollow(true);
+  it('zmiana zaznaczenia na INNĄ jednostkę resetuje autofollow', () => {
     useWorld.getState().select('hero-1');
+    useWorld.getState().setAutofollow(true);
+    useWorld.getState().select('hero-2');
     expect(useWorld.getState().autofollow).toBe(false);
-    expect(useWorld.getState().selectedSessionId).toBe('hero-1');
+    expect(useWorld.getState().selectedSessionId).toBe('hero-2');
   });
 
-  it('select(undefined) (zamknięcie panelu) też resetuje autofollow', () => {
+  it('ponowny klik w TĘ SAMĄ śledzoną jednostkę NIE zrywa autofollow', () => {
+    useWorld.getState().select('hero-1');
+    useWorld.getState().setAutofollow(true);
+    useWorld.getState().select('hero-1');
+    expect(useWorld.getState().autofollow).toBe(true);
+  });
+
+  it('zamknięcie panelu (select(undefined)) resetuje autofollow', () => {
+    useWorld.getState().select('hero-1');
     useWorld.getState().setAutofollow(true);
     useWorld.getState().select(undefined);
     expect(useWorld.getState().autofollow).toBe(false);
   });
 
-  it('selectBuilding(id) resetuje autofollow', () => {
+  it('selectBuilding resetuje autofollow', () => {
+    useWorld.getState().select('hero-1');
     useWorld.getState().setAutofollow(true);
     useWorld.getState().selectBuilding('forge');
     expect(useWorld.getState().autofollow).toBe(false);
+  });
+
+  it('usunięcie ŚLEDZONEGO bohatera czyści selekcję i autofollow', () => {
+    useWorld.getState().select('hero-1');
+    useWorld.getState().setAutofollow(true);
+    useWorld.getState().apply({ type: 'hero-removed', sessionId: 'hero-1' });
+    expect(useWorld.getState().selectedSessionId).toBeUndefined();
+    expect(useWorld.getState().autofollow).toBe(false);
+  });
+
+  it('usunięcie INNEGO bohatera nie zmienia selekcji/autofollow', () => {
+    useWorld.getState().select('hero-1');
+    useWorld.getState().setAutofollow(true);
+    useWorld.getState().apply({ type: 'hero-removed', sessionId: 'hero-2' });
+    expect(useWorld.getState().selectedSessionId).toBe('hero-1');
+    expect(useWorld.getState().autofollow).toBe(true);
   });
 });

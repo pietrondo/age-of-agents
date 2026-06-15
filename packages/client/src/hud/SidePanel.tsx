@@ -124,7 +124,7 @@ export function SidePanel() {
           </button>
           <label
             className="px"
-            title={t.autofollow}
+            title={t.autofollowHint}
             style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, cursor: 'pointer', opacity: 0.85, whiteSpace: 'nowrap' }}
           >
             <input
