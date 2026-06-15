@@ -7,26 +7,26 @@ import { parseArgs, shouldOpenBrowser } from './cli-args.js';
 // Siatka bezpieczeństwa: po starcie pojedynczy nieobsłużony błąd nie może wygasić
 // serwera wizualizacji. Błędy startu i tak lecą do main().catch poniżej.
 process.on('unhandledRejection', (reason) => {
-  console.error('Nieobsłużone odrzucenie obietnicy — serwer działa dalej:', reason);
+  console.error('Unhandled promise rejection — server keeps running:', reason);
 });
 process.on('uncaughtException', (err) => {
-  console.error('Nieobsłużony wyjątek — serwer działa dalej:', err);
+  console.error('Uncaught exception — server keeps running:', err);
 });
 
-const HELP = `Age of Agents — wizualizacja sesji Claude Code jako gra RTS.
+const HELP = `Age of Agents — visualize Claude Code sessions as an RTS game.
 
-Użycie:
-  age-of-agents [opcje]
-  aoa [opcje]
+Usage:
+  age-of-agents [options]
+  aoa [options]
 
-Domyślnie po starcie otwiera przeglądarkę na widoku gry (pomijane w CI / bez TTY).
+By default opens the browser on the game view after startup (skipped in CI / without a TTY).
 
-Opcje:
-  --demo           Tryb demo (sztuczne dane), bez podglądu ~/.claude/projects
-  --port, -p <n>   Port HTTP (domyślnie 8123)
-  --open           Wymuś otwarcie przeglądarki (także w CI / bez TTY)
-  --no-open        Nie otwieraj przeglądarki
-  --help, -h       Ta pomoc
+Options:
+  --demo           Demo mode (fake data), without watching ~/.claude/projects
+  --port, -p <n>   HTTP port (default 8123)
+  --open           Force opening the browser (even in CI / without a TTY)
+  --no-open        Do not open the browser
+  --help, -h       This help
 `;
 
 function openBrowser(url: string): void {
@@ -60,7 +60,7 @@ async function main(): Promise<void> {
     try {
       const server = await startServer({ port, demo: opts.demo, webRoot });
       process.stdout.write(
-        `\n  ▸ Age of Agents działa: ${server.url}\n    (Ctrl+C aby zatrzymać)\n\n`,
+        `\n  ▸ Age of Agents is running: ${server.url}\n    (Ctrl+C to stop)\n\n`,
       );
       const open = shouldOpenBrowser(opts.open, {
         ci: Boolean(process.env.CI),
@@ -81,6 +81,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err: unknown) => {
-  console.error(`Błąd: ${(err as Error).message}`);
+  console.error(`Error: ${(err as Error).message}`);
   process.exitCode = 1;
 });

@@ -211,7 +211,9 @@ button.ghost {
 /* ── Powiadomienia (lewa strona, efemeryczne toasty) ── */
 .notif-feed {
   position: absolute;
-  top: 12px;
+  /* Pod panelem sterowania (ThemeSwitch, top:12 wys. ~40px) — inaczej toasty
+     zasłaniają i blokują przyciski motywu/języka, póki nie znikną. */
+  top: 64px;
   left: 12px;
   display: flex;
   flex-direction: column;

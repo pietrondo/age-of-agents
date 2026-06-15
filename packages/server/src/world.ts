@@ -32,7 +32,7 @@ export class World {
       try {
         listener(event);
       } catch (err) {
-        console.error('[world] błąd listenera dla zdarzenia', event.type, err);
+        console.error('[world] listener error for event', event.type, err);
       }
     }
   }

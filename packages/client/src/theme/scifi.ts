@@ -8,7 +8,7 @@ import type { ThemeDef } from './types';
  */
 export const SCIFI: ThemeDef = {
   id: 'scifi',
-  name: 'Stacja (sci-fi)',
+  name: 'Station (sci-fi)',
   style: 'iso',
   projection: isometric(64, 32),
   tile: 64,
@@ -17,14 +17,14 @@ export const SCIFI: ThemeDef = {
   heroSprite: { scale: 1.0, footAnchor: 0.74 },
   grid: { w: 40, h: 26 },
   buildings: [
-    { id: 'citadel', label: 'Centrum dowodzenia', gx: 16.5, gy: 9, w: 4, h: 3, door: { gx: 19.5, gy: 14.5 }, placeholderColor: 0x8c93a8 },
-    { id: 'tower', label: 'Laboratorium', gx: 4.5, gy: 2, w: 2, h: 3, door: { gx: 6, gy: 7.5 }, placeholderColor: 0x7f77dd },
-    { id: 'forge', label: 'Fabryka dronów', gx: 31, gy: 3, w: 3, h: 2, door: { gx: 33, gy: 7 }, placeholderColor: 0xd85a30 },
-    { id: 'library', label: 'Archiwum danych', gx: 2, gy: 14, w: 3, h: 2, door: { gx: 4.5, gy: 17.5 }, placeholderColor: 0x378add },
-    { id: 'mine', label: 'Rafineria', gx: 32, gy: 14.5, w: 3, h: 2, door: { gx: 34, gy: 18 }, placeholderColor: 0x5f5e5a },
+    { id: 'citadel', label: 'Command Center', gx: 16.5, gy: 9, w: 4, h: 3, door: { gx: 19.5, gy: 14.5 }, placeholderColor: 0x8c93a8 },
+    { id: 'tower', label: 'Laboratory', gx: 4.5, gy: 2, w: 2, h: 3, door: { gx: 6, gy: 7.5 }, placeholderColor: 0x7f77dd },
+    { id: 'forge', label: 'Drone Factory', gx: 31, gy: 3, w: 3, h: 2, door: { gx: 33, gy: 7 }, placeholderColor: 0xd85a30 },
+    { id: 'library', label: 'Data Archive', gx: 2, gy: 14, w: 3, h: 2, door: { gx: 4.5, gy: 17.5 }, placeholderColor: 0x378add },
+    { id: 'mine', label: 'Refinery', gx: 32, gy: 14.5, w: 3, h: 2, door: { gx: 34, gy: 18 }, placeholderColor: 0x5f5e5a },
     { id: 'barracks', label: 'Hangar', gx: 9, gy: 20, w: 3, h: 2, door: { gx: 11, gy: 19.5 }, placeholderColor: 0x1d9e75 },
-    { id: 'market', label: 'Port kosmiczny', gx: 26, gy: 20, w: 3, h: 2, door: { gx: 28, gy: 19.5 }, placeholderColor: 0xba7517 },
-    { id: 'guild', label: 'Stacja łączności', gx: 17, gy: 20.5, w: 3, h: 2, door: { gx: 19.5, gy: 20 }, placeholderColor: 0xd4537e },
+    { id: 'market', label: 'Spaceport', gx: 26, gy: 20, w: 3, h: 2, door: { gx: 28, gy: 19.5 }, placeholderColor: 0xba7517 },
+    { id: 'guild', label: 'Comms Station', gx: 17, gy: 20.5, w: 3, h: 2, door: { gx: 19.5, gy: 20 }, placeholderColor: 0xd4537e },
   ],
   crossroads: [
     { id: 'x-center', gx: 19.5, gy: 16.5 },

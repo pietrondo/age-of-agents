@@ -58,7 +58,7 @@ export async function startServer(opts: StartServerOptions): Promise<RunningServ
 
     app.addHook('onReady', async () => {
       for (const w of watchers) w.start();
-      app.log.info(`Watchery źródeł aktywne: ${watchers.map((w) => w.id).join(', ')}`);
+      app.log.info(`Source watchers active: ${watchers.map((w) => w.id).join(', ')}`);
     });
   }
 
@@ -88,7 +88,7 @@ export async function startServer(opts: StartServerOptions): Promise<RunningServ
     try {
       socket.send(JSON.stringify(event));
     } catch (err) {
-      app.log.warn({ err }, 'Wysyłka WS nie powiodła się — pomijam tego klienta');
+      app.log.warn({ err }, 'WS send failed — skipping this client');
     }
   };
 

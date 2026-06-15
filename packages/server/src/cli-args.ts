@@ -17,11 +17,11 @@ export interface CliOptions {
 
 function parsePort(value: string | undefined): number {
   if (value === undefined || value === '') {
-    throw new Error(`Nieprawidłowy port: ${value === undefined ? '(brak)' : '(pusty)'}`);
+    throw new Error(`Invalid port: ${value === undefined ? '(missing)' : '(empty)'}`);
   }
   const n = Number(value);
   if (!Number.isInteger(n) || n < 0 || n > 65535) {
-    throw new Error(`Nieprawidłowy port: ${value}`);
+    throw new Error(`Invalid port: ${value}`);
   }
   return n;
 }
@@ -36,7 +36,7 @@ export function parseArgs(argv: string[]): CliOptions {
     else if (arg === '--help' || arg === '-h') opts.help = true;
     else if (arg === '--port' || arg === '-p') opts.port = parsePort(argv[++i]);
     else if (arg.startsWith('--port=')) opts.port = parsePort(arg.slice('--port='.length));
-    else throw new Error(`Nieznana opcja: ${arg}`);
+    else throw new Error(`Unknown option: ${arg}`);
   }
   return opts;
 }

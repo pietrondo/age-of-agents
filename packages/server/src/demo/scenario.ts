@@ -21,7 +21,7 @@ function makeHero(world: World, sessionId: string, title: string): HeroSnapshot 
   return {
     sessionId,
     title,
-    projectDir: '/demo/projekt',
+    projectDir: '/demo/project',
     model: 'claude-fable-5',
     gitBranch: 'main',
     teamColor: world.claimTeamColor(),
@@ -60,8 +60,8 @@ function say(world: World, sessionId: string, role: 'user' | 'assistant', text: 
   });
 }
 
-const H1 = 'demo-kowal';
-const H2 = 'demo-zwiadowca';
+const H1 = 'demo-smith';
+const H2 = 'demo-scout';
 const PEON = 'demo-peon-1';
 
 const TIMELINE: Step[] = [
@@ -70,13 +70,13 @@ const TIMELINE: Step[] = [
     at: 1,
     run: (w, i) => {
       w.startMission({
-        id: `demo-m-naprawa-${i}`,
+        id: `demo-m-fix-${i}`,
         sessionId: H1,
-        prompt: 'Napraw moduł płatności — testy sypią się od rana',
+        prompt: 'Fix the payments module — tests have been failing since morning',
         status: 'active',
         startedAt: new Date().toISOString(),
       });
-      say(w, H1, 'user', 'Napraw moduł płatności — testy sypią się od rana');
+      say(w, H1, 'user', 'Fix the payments module — tests have been failing since morning');
       patch(w, H1, { state: 'thinking' });
     },
   },
@@ -86,19 +86,19 @@ const TIMELINE: Step[] = [
   {
     at: 21,
     run: (w) => {
-      say(w, H1, 'assistant', 'Test nadal czerwony — walidacja kwot odrzuca zero. Poprawiam warunek brzegowy.');
+      say(w, H1, 'assistant', 'Test still red — amount validation rejects zero. Fixing the edge case.');
       patch(w, H1, { state: 'error' });
     },
   },
-  { at: 25, run: (w) => patch(w, H1, { state: 'working', currentTool: 'Edit', toolDetail: 'payments.ts — poprawka' }) },
-  { at: 31, run: (w) => patch(w, H1, { state: 'working', currentTool: 'Bash', toolDetail: 'npm test — zielone ✓' }) },
+  { at: 25, run: (w) => patch(w, H1, { state: 'working', currentTool: 'Edit', toolDetail: 'payments.ts — fix' }) },
+  { at: 31, run: (w) => patch(w, H1, { state: 'working', currentTool: 'Bash', toolDetail: 'npm test — green ✓' }) },
   { at: 37, run: (w) => patch(w, H1, { state: 'working', currentTool: 'Bash', toolDetail: 'git commit + push' }) },
   {
     at: 43,
     run: (w, i) => {
-      say(w, H1, 'assistant', 'Moduł płatności naprawiony, testy zielone, zmiany wypchnięte.');
+      say(w, H1, 'assistant', 'Payments module fixed, tests green, changes pushed.');
       patch(w, H1, { state: 'returning' });
-      w.completeMission(`demo-m-naprawa-${i}`, 'completed', new Date().toISOString());
+      w.completeMission(`demo-m-fix-${i}`, 'completed', new Date().toISOString());
     },
   },
   { at: 50, run: (w) => patch(w, H1, { state: 'idle' }) },
@@ -108,36 +108,36 @@ const TIMELINE: Step[] = [
     at: 6,
     run: (w, i) => {
       w.startMission({
-        id: `demo-m-eksport-${i}`,
+        id: `demo-m-export-${i}`,
         sessionId: H2,
-        prompt: 'Dodaj eksport raportów do CSV i PDF',
+        prompt: 'Add report export to CSV and PDF',
         status: 'active',
         startedAt: new Date().toISOString(),
       });
-      say(w, H2, 'user', 'Dodaj eksport raportów do CSV i PDF');
+      say(w, H2, 'user', 'Add report export to CSV and PDF');
       patch(w, H2, { state: 'thinking' });
     },
   },
   {
     at: 11,
     run: (w) => {
-      patch(w, H2, { state: 'working', currentTool: 'Task', toolDetail: 'Zbadaj formaty eksportu' });
+      patch(w, H2, { state: 'working', currentTool: 'Task', toolDetail: 'Research export formats' });
       w.upsertPeon({
         agentId: PEON,
         parentSessionId: H2,
         state: 'working',
         currentTool: 'Grep',
-        description: 'Zbadaj formaty eksportu',
+        description: 'Research export formats',
       });
     },
   },
   { at: 14, run: (w) => patch(w, H2, { state: 'thinking' }) },
-  { at: 19, run: (w) => w.upsertPeon({ agentId: PEON, parentSessionId: H2, state: 'working', currentTool: 'Bash', description: 'Zbadaj formaty eksportu' }) },
+  { at: 19, run: (w) => w.upsertPeon({ agentId: PEON, parentSessionId: H2, state: 'working', currentTool: 'Bash', description: 'Research export formats' }) },
   { at: 27, run: (w) => w.completePeon(PEON) }, // wraca ze skrzynką do bohatera
   {
     at: 29,
     run: (w) => {
-      say(w, H2, 'assistant', 'Zwiadowca wrócił: najlepiej csv-stringify + pdfkit. Implementuję.');
+      say(w, H2, 'assistant', 'Scout is back: csv-stringify + pdfkit are the best fit. Implementing.');
       patch(w, H2, { state: 'working', currentTool: 'Write', toolDetail: 'export.ts' });
     },
   },
@@ -145,17 +145,17 @@ const TIMELINE: Step[] = [
   {
     at: 46,
     run: (w, i) => {
-      say(w, H2, 'assistant', 'Eksport CSV i PDF gotowy, z testami.');
+      say(w, H2, 'assistant', 'CSV and PDF export ready, with tests.');
       patch(w, H2, { state: 'returning' });
-      w.completeMission(`demo-m-eksport-${i}`, 'completed', new Date().toISOString());
+      w.completeMission(`demo-m-export-${i}`, 'completed', new Date().toISOString());
     },
   },
   { at: 53, run: (w) => patch(w, H2, { state: 'idle' }) },
 ];
 
 export function startDemo(world: World): void {
-  world.upsertHero(makeHero(world, H1, 'Napraw moduł płatności'));
-  world.upsertHero(makeHero(world, H2, 'Eksport raportów'));
+  world.upsertHero(makeHero(world, H1, 'Fix payments module'));
+  world.upsertHero(makeHero(world, H2, 'Report export'));
 
   const startedAt = Date.now();
   const fired = new Set<string>();

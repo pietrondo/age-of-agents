@@ -32,7 +32,7 @@ describe('parseArgs', () => {
   });
 
   it('rzuca na nieznaną opcję', () => {
-    expect(() => parseArgs(['--cos'])).toThrow(/Nieznana opcja/);
+    expect(() => parseArgs(['--cos'])).toThrow(/Unknown option/);
   });
 
   it('rzuca gdy --port/-p bez wartości', () => {
